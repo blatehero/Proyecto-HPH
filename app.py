@@ -1,6 +1,6 @@
 import streamlit as st
 import importlib
-import Proyectos_Cross.cross as cross
+import Proyectos_Cross.vista_cross as cross
 
 importlib.reload(cross)
 
