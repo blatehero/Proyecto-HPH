@@ -8,7 +8,7 @@ import Proyectos_Cross.procesarCross_Ped as pc
 
 
 # =========================================================
-# RECARGAR FUNCIONES
+# RECARGAR MÓDULOS
 # =========================================================
 
 importlib.reload(utils)
@@ -50,33 +50,17 @@ st.markdown("""
 
 def mostrar_cross():
 
-    # st.markdown("# 🔄 CROSS")
-
-
     # =====================================================
-    # SUBPROCESO SELECCIONADO
+    # ESTADOS
     # =====================================================
 
     if "subproceso_cross" not in st.session_state:
-
         st.session_state.subproceso_cross = "cross_ped"
 
-
-    # =====================================================
-    # DATAFRAMES CARGADOS
-    # =====================================================
-
     if "dfs_cross" not in st.session_state:
-
         st.session_state.dfs_cross = None
 
-
-    # =====================================================
-    # RESULTADO
-    # =====================================================
-
     if "resultado_cross_ped" not in st.session_state:
-
         st.session_state.resultado_cross_ped = None
 
 
@@ -84,48 +68,48 @@ def mostrar_cross():
     # CARGA DE ARCHIVOS
     # =====================================================
 
-    st.markdown("## 📁 Subir archivos")
+    st.markdown("# 📁 Subir archivos")
 
 
-    columnas = st.columns(4)
+    col1, col2 = st.columns(2)
 
 
-    archivos_config = [
-        ("DS.csv", "methode"),
-        ("UND HOMOLOGADAS.csv", "homologadas"),
-        ("DS VIRGEN 701.csv", "virgen_701"),
-        ("DS VIRGEN 512.csv", "virgen_512"),
-        ("DS VIRGEN 557.csv", "virgen_557"),
-        ("CLIENTE_IMPO.csv", "cliente_impo"),
-        ("CLIENTE_EXPO.csv", "cliente_expo")
-    ]
+    # -----------------------------------------------------
+    # BASE
+    # -----------------------------------------------------
+
+    with col1:
+
+        archivo_base = st.file_uploader(
+            "📄 BASE",
+            type=["xlsx"],
+            key="archivo_base"
+        )
 
 
-    archivos = {}
+    # -----------------------------------------------------
+    # CLIENTES
+    # -----------------------------------------------------
 
+    with col2:
 
-    for i, (nombre, key) in enumerate(archivos_config):
-
-        with columnas[i % 4]:
-
-            archivos[nombre] = st.file_uploader(
-                nombre,
-                type=["csv"],
-                key=key
-            )
+        archivo_clientes = st.file_uploader(
+            "👥 CLIENTES",
+            type=["xlsx"],
+            key="archivo_clientes"
+        )
 
 
     # =====================================================
     # PROGRESO
     # =====================================================
 
-    total_archivos = len(archivos)
+    total_archivos = 2
 
-
-    archivos_cargados = sum(
-        archivo is not None
-        for archivo in archivos.values()
-    )
+    archivos_cargados = sum([
+        archivo_base is not None,
+        archivo_clientes is not None
+    ])
 
 
     st.progress(
@@ -141,41 +125,64 @@ def mostrar_cross():
     st.markdown("### 📋 Estado de archivos")
 
 
-    columnas_estado = st.columns(4)
+    col1, col2 = st.columns(2)
 
 
-    for i, (nombre, archivo) in enumerate(archivos.items()):
+    with col1:
 
-        with columnas_estado[i % 4]:
+        if archivo_base is not None:
 
-            if archivo is not None:
+            st.markdown(
+                """
+                <div class="estado-ok">
+                    ✅ BASE cargado
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.markdown(
-                    f"""
-                    <div class="estado-ok">
-                        ✅ {nombre}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        else:
 
-            else:
+            st.markdown(
+                """
+                <div class="estado-pendiente">
+                    ⏳ BASE pendiente
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-                st.markdown(
-                    f"""
-                    <div class="estado-pendiente">
-                        ⏳ {nombre}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+
+    with col2:
+
+        if archivo_clientes is not None:
+
+            st.markdown(
+                """
+                <div class="estado-ok">
+                    ✅ CLIENTES cargado
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        else:
+
+            st.markdown(
+                """
+                <div class="estado-pendiente">
+                    ⏳ CLIENTES pendiente
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
 
     st.divider()
 
 
     # =====================================================
-    # BOTÓN CARGAR ARCHIVOS
+    # CARGAR DATAFRAMES
     # =====================================================
 
     if st.button(
@@ -184,67 +191,55 @@ def mostrar_cross():
         type="primary"
     ):
 
-
-        # -------------------------------------------------
-        # VALIDAR
-        # -------------------------------------------------
-
         if archivos_cargados < total_archivos:
 
             st.error(
-                f"Faltan "
-                f"{total_archivos - archivos_cargados} "
+                f"Faltan {total_archivos - archivos_cargados} "
                 "archivos por cargar."
             )
 
-            return
+        else:
+
+            with st.status(
+                "📥 Cargando archivos...",
+                expanded=True
+            ) as status:
+
+                st.write("Leyendo BASE...")
+                st.write("Leyendo CLIENTES...")
+                st.write("Cargando UND HOMOLOGADAS...")
+                st.write("Preparando DataFrames...")
 
 
-        # -------------------------------------------------
-        # CARGAR DATAFRAMES
-        # -------------------------------------------------
+                dfs = utils.iniciar_proceso(
+                    archivo_base,
+                    archivo_clientes
+                )
 
-        with st.status(
-            "📥 Cargando archivos...",
-            expanded=True
-        ) as status:
+                
 
-            st.write("Leyendo los 7 archivos...")
+                st.session_state.dfs_cross = dfs
 
-            dfs = utils.iniciar_proceso(
+                # Limpiar resultado anterior
+                st.session_state.resultado_cross_ped = None
 
-                archivos["DS.csv"],
-                archivos["UND HOMOLOGADAS.csv"],
-                archivos["DS VIRGEN 701.csv"],
-                archivos["DS VIRGEN 512.csv"],
-                archivos["DS VIRGEN 557.csv"],
-                archivos["CLIENTE_IMPO.csv"],
-                archivos["CLIENTE_EXPO.csv"]
 
-            )
-
-            st.write("Guardando DataFrames en memoria...")
-
-            st.session_state.dfs_cross = dfs
-
-            # Limpiar resultados anteriores
-            st.session_state.resultado_cross_ped = None
-
-            status.update(
-                label="✅ Archivos cargados correctamente",
-                state="complete",
-                expanded=False
-            )
+                status.update(
+                    label="✅ Archivos cargados correctamente",
+                    state="complete",
+                    expanded=False
+                )
 
 
     # =====================================================
-    # ESTADO DE CARGA
+    # CONFIRMACIÓN DE CARGA
     # =====================================================
 
     if st.session_state.dfs_cross is not None:
 
         st.success(
-            "✅ DataFrames cargados y disponibles para los 5 procesos."
+            "✅ Archivos cargados. "
+            "Los DataFrames están disponibles para los 5 procesos."
         )
 
 
@@ -252,7 +247,7 @@ def mostrar_cross():
 
 
     # =====================================================
-    # SUBPROCESOS CROSS
+    # MENÚ DE LOS 5 SUBPROCESOS
     # =====================================================
 
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -371,7 +366,7 @@ def mostrar_cross():
 
 
         # -------------------------------------------------
-        # VALIDAR QUE LOS DFS ESTÉN CARGADOS
+        # VALIDAR CARGA
         # -------------------------------------------------
 
         if st.session_state.dfs_cross is None:
@@ -380,80 +375,98 @@ def mostrar_cross():
                 "📥 Primero debes cargar los archivos."
             )
 
-            return
+        else:
+
+            # ---------------------------------------------
+            # EJECUTAR
+            # ---------------------------------------------
+
+            if st.button(
+                "🚀 EJECUTAR CROSS X PED",
+                use_container_width=True,
+                type="primary"
+            ):
+
+                try:
+
+                    with st.status(
+                        "⚙️ Ejecutando CROSS X PED...",
+                        expanded=True
+                    ) as status:
+
+                        st.write("Ejecutando proceso...")
+                        st.write("CLAVES QUE ESTOY PASANDO:", st.session_state.dfs_cross.keys())
+                        resultado = pc.ejecutar_proceso(
+                            st.session_state.dfs_cross
+                        )
 
 
-        # -------------------------------------------------
-        # EJECUTAR CROSS X PED
-        # -------------------------------------------------
-
-        if st.button(
-            "🚀 EJECUTAR CROSS X PED",
-            use_container_width=True,
-            type="primary"
-        ):
-
-            with st.status(
-                "⚙️ Ejecutando CROSS X PED...",
-                expanded=True
-            ) as status:
-
-                st.write("Procesando DataFrames...")
-
-                resultado = pc.ejecutar_proceso(
-                    st.session_state.dfs_cross
-                )
-
-                st.write("Generando archivo Excel...")
-
-                buffer = io.BytesIO()
+                        st.write("Generando archivo Excel...")
 
 
-                with pd.ExcelWriter(
-                    buffer,
-                    engine="openpyxl"
-                ) as writer:
+                        # ---------------------------------
+                        # GENERAR EXCEL EN MEMORIA
+                        # ---------------------------------
 
-                    resultado.to_excel(
-                        writer,
-                        index=False,
-                        sheet_name="CROSS X PED"
+                        buffer = io.BytesIO()
+
+
+                        with pd.ExcelWriter(
+                            buffer,
+                            engine="openpyxl"
+                        ) as writer:
+
+                            resultado.to_excel(
+                                writer,
+                                index=False,
+                                sheet_name="CROSS X PED"
+                            )
+
+
+                        buffer.seek(0)
+
+
+                        st.session_state.resultado_cross_ped = (
+                            buffer.getvalue()
+                        )
+
+
+                        status.update(
+                            label="✅ CROSS X PED terminado correctamente",
+                            state="complete",
+                            expanded=False
+                        )
+
+
+                except Exception as e:
+
+                    st.error(
+                        f"❌ Error durante CROSS X PED: {e}"
                     )
 
 
-                buffer.seek(0)
+            # ---------------------------------------------
+            # RESULTADO / DESCARGA
+            # ---------------------------------------------
 
+            if st.session_state.resultado_cross_ped is not None:
 
-                # Guardamos el resultado
-                st.session_state.resultado_cross_ped = buffer.getvalue()
-
-
-                status.update(
-                    label="✅ CROSS X PED terminado correctamente",
-                    state="complete",
-                    expanded=False
+                st.success(
+                    "✅ CROSS X PED terminado correctamente. "
+                    "El archivo está listo para descargar."
                 )
 
 
-        # -------------------------------------------------
-        # DESCARGA
-        # -------------------------------------------------
-
-        if st.session_state.resultado_cross_ped is not None:
-
-            st.success(
-                "✅ CROSS X PED terminado correctamente. "
-                "El archivo está listo para descargar."
-            )
-
-
-            st.download_button(
-                label="⬇️ DESCARGAR CROSS X PED",
-                data=st.session_state.resultado_cross_ped,
-                file_name="CROSS X PED.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+                st.download_button(
+                    label="⬇️ DESCARGAR CROSS X PED",
+                    data=st.session_state.resultado_cross_ped,
+                    file_name="CROSS X PED.xlsx",
+                    mime=(
+                        "application/vnd.openxmlformats-officedocument."
+                        "spreadsheetml.sheet"
+                    ),
+                    use_container_width=True
+                )
 
 
     # =====================================================
@@ -464,6 +477,7 @@ def mostrar_cross():
 
         st.markdown("## 📊 PROCESO 2")
 
+
         if st.session_state.dfs_cross is None:
 
             st.warning(
@@ -473,7 +487,7 @@ def mostrar_cross():
         else:
 
             st.success(
-                "✅ Los DataFrames ya están cargados y disponibles."
+                "✅ Los DataFrames ya están cargados."
             )
 
             st.info(
@@ -489,6 +503,7 @@ def mostrar_cross():
 
         st.markdown("## 📊 PROCESO 3")
 
+
         if st.session_state.dfs_cross is None:
 
             st.warning(
@@ -498,7 +513,7 @@ def mostrar_cross():
         else:
 
             st.success(
-                "✅ Los DataFrames ya están cargados y disponibles."
+                "✅ Los DataFrames ya están cargados."
             )
 
             st.info(
@@ -514,6 +529,7 @@ def mostrar_cross():
 
         st.markdown("## 📊 PROCESO 4")
 
+
         if st.session_state.dfs_cross is None:
 
             st.warning(
@@ -523,7 +539,7 @@ def mostrar_cross():
         else:
 
             st.success(
-                "✅ Los DataFrames ya están cargados y disponibles."
+                "✅ Los DataFrames ya están cargados."
             )
 
             st.info(
@@ -539,6 +555,7 @@ def mostrar_cross():
 
         st.markdown("## 📊 PROCESO 5")
 
+
         if st.session_state.dfs_cross is None:
 
             st.warning(
@@ -548,7 +565,7 @@ def mostrar_cross():
         else:
 
             st.success(
-                "✅ Los DataFrames ya están cargados y disponibles."
+                "✅ Los DataFrames ya están cargados."
             )
 
             st.info(

@@ -1,6 +1,15 @@
 import pandas as pd
 from datetime import datetime
 import numpy as np
+import os
+
+ruta_base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+ruta_homologadas = os.path.join(
+    ruta_base,
+    "datos",
+    "UND HOMOLOGADAS.csv"
+)
 # pd.set_option("display.precision", 10)
 
 # ruta= r"C:/Users/User/OneDrive/Proyecto/PYTHON/Proyecto HPH/CROSS X/inputs/"
@@ -38,27 +47,78 @@ def limpiar_campo(valor):
 
 
 
-def dataframe_csv(archivo_ds,
-    archivo_homo,
-    archivo_v701,
-    archivo_v512,
-    archivo_v557,
-    archivo_cli_impo,
-    archivo_cli_expo):
+def dataframe_excel(archivo_base, archivo_clientes):
     
-    df_ds = leer_csv(archivo_ds)
+    # df_ds = leer_csv(archivo_ds)
 
-    df_homo = leer_csv(archivo_homo)
+    # df_homo = leer_csv(ruta_homologadas)
 
-    df_v701 = leer_csv(archivo_v701)
+    # df_v701 = leer_csv(archivo_v701)
 
-    df_v512 = leer_csv(archivo_v512)
+    # df_v512 = leer_csv(archivo_v512)
 
-    df_v557 = leer_csv(archivo_v557)
+    # df_v557 = leer_csv(archivo_v557)
 
-    df_cli_impo = leer_csv(archivo_cli_impo)
+    # df_cli_impo = leer_csv(archivo_cli_impo)
 
-    df_cli_expo = leer_csv(archivo_cli_expo)  
+    # df_cli_expo = leer_csv(archivo_cli_expo)  
+
+    # =====================================================
+    # EXCEL PRINCIPAL
+    # =====================================================
+
+    df_ds = pd.read_excel(
+        archivo_base,
+        sheet_name="DS"
+    )
+
+    df_homo = pd.read_csv(
+        ruta_homologadas,
+        sep=";",
+        encoding="utf-8"
+    )
+    
+    df_v701 = pd.read_excel(
+        archivo_base,
+        sheet_name="701"
+    )
+
+    df_v512 = pd.read_excel(
+        archivo_base,
+        sheet_name="512"
+    )
+
+    df_v557 = pd.read_excel(
+        archivo_base,
+        sheet_name="557"
+    )
+
+
+    # =====================================================
+    # EXCEL CLIENTES
+    # =====================================================
+
+    df_clientes = pd.read_excel(
+        archivo_clientes
+    )
+
+
+    # =====================================================
+    # SEPARAR IMPO / EXPO
+    # =====================================================
+
+    df_cli_impo = df_clientes[
+        df_clientes["TIPO"] == "IMPO"
+    ].copy()
+
+    df_cli_expo = df_clientes[
+        df_clientes["TIPO"] == "EXPO"
+    ].copy()
+
+
+    # =====================================================
+    # RETORNAR
+    # =====================================================
 
     return {
     "df_ds": df_ds,
@@ -74,28 +134,20 @@ def dataframe_csv(archivo_ds,
 
 
 def iniciar_proceso(
-    archivo_ds,
-    archivo_homo,
-    archivo_v701,
-    archivo_v512,
-    archivo_v557,
-    archivo_cli_impo,
-    archivo_cli_expo
+    archivo_base,
+    archivo_clientes
 ):
 
     global dfs
 
-    dfs = dataframe_csv(
-        archivo_ds,
-        archivo_homo,
-        archivo_v701,
-        archivo_v512,
-        archivo_v557,
-        archivo_cli_impo,
-        archivo_cli_expo
+    dfs = dataframe_excel(
+        archivo_base, 
+        archivo_clientes
     )
 
     df_homo = homologa()
+    
+    # print("COLUMNAS DF_HOMO:", df_homo.columns.tolist())
 
     df_cli_impo = dataframe_cliente_impo()
 
@@ -129,20 +181,22 @@ def dataframe_cliente_impo():
     df_cli_impo = dfs["df_cli_impo"]
     df_homo = dfs["df_homo"]
     
+    # print('mensaje')
 
     # df_cli_impo["FRACCION"] = df_cli_impo["FRACCION"].fillna("").astype(str).str.split().str[0]
     df_cli_impo["FRACCION"] = df_cli_impo["FRACCION"].fillna("").astype(str).str[:8]
     df_cli_impo["NICO"] = (df_cli_impo["NICO"].fillna("").astype(str).str.replace(" ", "", regex=False))
     df_cli_impo["ADU-PAT-PED"] = (df_cli_impo["ADU-PAT-PED"].fillna("").astype(str).str.replace(" ", "", regex=False))
     df_cli_impo["SECUENCIA"] = (df_cli_impo["SECUENCIA"].fillna("").astype(str).str.replace(" ", "", regex=False))
-    df_cli_impo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_impo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False),errors="coerce")
+    # df_cli_impo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_impo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False),errors="coerce")
+    df_cli_impo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_impo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False), errors="coerce")
 
 
     df_cli_impo = df_cli_impo.merge(
         df_homo[
             ["Unit of Entry", "UM NORMALIZADA", "EQUIVALENTE"]
         ],  
-        left_on="UNIDAD MEDIDA COMERNCIAL",
+        left_on="UNIDAD MEDIDA COMERCIAL",
         right_on="Unit of Entry",
         how="left"
     )
@@ -165,7 +219,7 @@ def dataframe_cliente_impo():
             # "FRACCION",
             "NICO",
             "SECUENCIA",
-            "UNIDAD MEDIDA COMERNCIAL",
+            "UNIDAD MEDIDA COMERCIAL",
             "CANTIDAD COMERCIAL"
         ],
         inplace=True
@@ -176,10 +230,19 @@ def dataframe_cliente_impo():
 
 
 
+    # df_cli_impo["VALOR EN DOLARES"] = pd.to_numeric(
+    #     df_cli_impo["VALOR EN DOLARES"].str.replace(",", "", regex=False),
+    #     errors="coerce"
+    # )
+
     df_cli_impo["VALOR EN DOLARES"] = pd.to_numeric(
-        df_cli_impo["VALOR EN DOLARES"].str.replace(",", "", regex=False),
+        df_cli_impo["VALOR EN DOLARES"]
+        .astype(str)
+        .str.replace(",", "", regex=False),
         errors="coerce"
     )
+
+
 
     
     return df_cli_impo
@@ -197,14 +260,15 @@ def dataframe_cliente_expo():
     df_cli_expo["NICO"] = (df_cli_expo["NICO"].fillna("").astype(str).str.replace(" ", "", regex=False))
     df_cli_expo["ADU-PAT-PED"] = (df_cli_expo["ADU-PAT-PED"].fillna("").astype(str).str.replace(" ", "", regex=False))
     df_cli_expo["SECUENCIA"] = (df_cli_expo["SECUENCIA"].fillna("").astype(str).str.replace(" ", "", regex=False))    
-    df_cli_expo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_expo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False),errors="coerce")
+    # df_cli_expo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_expo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False),errors="coerce")
+    df_cli_expo["CANTIDAD COMERCIAL"] = pd.to_numeric(df_cli_expo["CANTIDAD COMERCIAL"].astype(str).str.replace(",", "", regex=False), errors="coerce")
 
 
     df_cli_expo = df_cli_expo.merge(
         df_homo[
             ["Unit of Entry", "UM NORMALIZADA", "EQUIVALENTE"]
         ],  
-        left_on="UNIDAD MEDIDA COMERNCIAL",
+        left_on="UNIDAD MEDIDA COMERCIAL",
         right_on="Unit of Entry",
         how="left"
     )
@@ -229,7 +293,7 @@ def dataframe_cliente_expo():
             # "FRACCION",
             "NICO",
             "SECUENCIA",
-            "UNIDAD MEDIDA COMERNCIAL",
+            "UNIDAD MEDIDA COMERCIAL",
             "CANTIDAD COMERCIAL"
         ],
         inplace=True
@@ -240,10 +304,19 @@ def dataframe_cliente_expo():
     df_cli_expo.drop(columns=["EQUIVALENTE"], inplace=True)
 
 
+    # df_cli_expo["VALOR EN DOLARES"] = pd.to_numeric(
+    #     df_cli_expo["VALOR EN DOLARES"].str.replace(",", "", regex=False),
+    #     errors="coerce"
+    # )
+
     df_cli_expo["VALOR EN DOLARES"] = pd.to_numeric(
-        df_cli_expo["VALOR EN DOLARES"].str.replace(",", "", regex=False),
+        df_cli_expo["VALOR EN DOLARES"]
+        .astype(str)
+        .str.replace(",", "", regex=False),
         errors="coerce"
     )
+
+
 
 # VALOR COMERCIAL
     
@@ -274,15 +347,26 @@ def dataframe_DS():
     df_homo = dfs["df_homo"]
     
     
+    # df_ds["CANT UMC"] = pd.to_numeric(
+    #     df_ds["CANT UMC"].str.replace(",", "", regex=False),
+    #     errors="coerce"
+    # )
+
+    # df_ds["VAL USD"] = pd.to_numeric(
+    #     df_ds["VAL USD"].str.replace(",", "", regex=False),
+    #     errors="coerce"
+    # )
+
     df_ds["CANT UMC"] = pd.to_numeric(
-        df_ds["CANT UMC"].str.replace(",", "", regex=False),
+        df_ds["CANT UMC"].astype(str).str.replace(",", "", regex=False),
         errors="coerce"
     )
 
     df_ds["VAL USD"] = pd.to_numeric(
-        df_ds["VAL USD"].str.replace(",", "", regex=False),
+        df_ds["VAL USD"].astype(str).str.replace(",", "", regex=False),
         errors="coerce"
     )
+
 
 
     df_ds = df_ds.merge(
