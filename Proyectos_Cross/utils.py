@@ -99,7 +99,8 @@ def dataframe_excel(archivo_base, archivo_clientes):
     # =====================================================
 
     df_clientes = pd.read_excel(
-        archivo_clientes
+        archivo_clientes,
+        dtype={"NICO": str}
     )
 
 

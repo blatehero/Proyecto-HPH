@@ -1,11 +1,13 @@
 import pandas as pd
 from datetime import datetime
 import numpy as np
-
+from Proyectos_Cross.log import log
 
 def crearDfCliente(df_cli):
 
     df_cli =df_cli.copy()
+    
+    # log(df_cli.to_string())
     
     columnas_group_cli = [
         "ADU-PAT-PED-HTSNICO"
@@ -164,6 +166,19 @@ def mergeCliente_DS(df_ds_group, df_cli_group):
     df_ds_group=df_ds_group.copy()
     df_cli_group=df_cli_group.copy()
 
+
+
+    # dato_buscar = "240-1902-6001887-8209000100"
+
+    # df_filtrado = df_cli_group[
+    #     df_cli_group["ADU-PAT-PED-HTSNICO"].astype(str) == dato_buscar
+    # ]
+
+    
+
+
+
+
     df_ds_group = df_ds_group.merge(
         df_cli_group[
             ["ADU-PAT-PED-HTSNICO", "VALOR EN DOLARES","UM NORMALIZADA","CANT_UMC_NEW_DETALLE"]
@@ -231,21 +246,65 @@ def revDuplicadoUND(df_ds_group):
     cant = pd.to_numeric(df_ds_group["CANT_UMC_NEW_DETALLE"], errors="coerce")
     base = pd.to_numeric(df_ds_group["BASE CANTIDAD COMERCIAL"], errors="coerce")
 
+
+    cant_original = df_ds_group["CANT_UMC_NEW_DETALLE"]
+    base_original = df_ds_group["BASE CANTIDAD COMERCIAL"]
+
+    base_vacio = (
+        base_original.isna() |
+        (base_original.astype(str).str.strip() == "")
+    )
+
+    cant_texto = cant.isna() & ~(
+        cant_original.isna() |
+        (cant_original.astype(str).str.strip() == "")
+    )
+
+    base_texto = base.isna() & ~base_vacio
+
+
     resultado = np.empty(len(df_ds_group), dtype=object)
 
     # SI(Y(Y=AA;X=Z);0)
     resultado[(y == aa) & (x == z)] = 0
 
     # SI(Z="";X)
-    m = ~( (y == aa) & (x == z) ) & base.isna()
-    resultado[m] = df_ds_group.loc[m, "CANT_UMC_NEW_DETALLE"]
+    # m = ~( (y == aa) & (x == z) ) & base.isna()
+    # resultado[m] = df_ds_group.loc[m, "CANT_UMC_NEW_DETALLE"]
 
     # SI(Y<>AA;"REVISAR UM")
-    m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y != aa)
+    # m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y != aa)
+    # resultado[m] = "REVISAR UM"
+
+
+
+    # SI(BASE CANTIDAD COMERCIAL=""; CANT_UMC_NEW_DETALLE)
+    m = ~( (y == aa) & (x == z) ) & base_vacio
+    resultado[m] = df_ds_group.loc[m, "CANT_UMC_NEW_DETALLE"]
+
+
+    # SI(O(ESTEXTO(CANTIDAD);ESTEXTO(BASE CANTIDAD));"REVISAR UM")
+    m = (
+        ~( (y == aa) & (x == z) )
+        & ~base_vacio
+        & (cant_texto | base_texto)
+    )
     resultado[m] = "REVISAR UM"
 
+
+    # SI(UNIDADES DIFERENTES;"REVISAR UM")
+    m = (
+        ~( (y == aa) & (x == z) )
+        & ~base_vacio
+        & ~(cant_texto | base_texto)
+        & (y != aa)
+    )
+    resultado[m] = "REVISAR UM"
+
+
     # Diferencias numéricas
-    m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y == aa)
+    # m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y == aa)
+    m = (~( (y == aa) & (x == z) )& ~base_vacio & ~(cant_texto | base_texto) & (y == aa))
 
     dif = cant - base
 
@@ -361,10 +420,10 @@ def estatusUND(df_ds_group):
                     (ab >= -1) & (ab <= 1),
                     df_ds_group["CLAVES IMMEX"] + "-100% CORRECTO EN CANTIDAD HTSNICO",
 
-                    np.where(
-                        # x > 1,
-                        pd.to_numeric(x, errors="coerce").fillna(0) > 1,
-                        df_ds_group["CLAVES IMMEX"] + "-LE FALTA CANTIDAD HTSNICO EN BASE",
+                    # np.where(
+                    #     # x > 1,
+                    #     pd.to_numeric(x, errors="coerce").fillna(0) > 1,
+                    #     df_ds_group["CLAVES IMMEX"] + "-LE FALTA CANTIDAD HTSNICO EN BASE",
 
                         # np.where(
                         #     (((x / z) - 1) >= -0.01) &
@@ -418,7 +477,7 @@ def estatusUND(df_ds_group):
                 )
             )
         )
-    )
+    # )
     return df_ds_group    
 
 

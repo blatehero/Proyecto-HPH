@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 import numpy as np
-
+from Proyectos_Cross.log import log
 
 def crearDfCliente(df_cli):
 
@@ -221,9 +221,12 @@ def mergeCliente_DS(df_ds_group, df_cli_group):
 
 def ordenar(valor):
     if pd.isna(valor):
-        return valor
-    return " & ".join(sorted(str(valor).split(" & ")))
 
+        return valor
+
+    partes = [x.strip() for x in str(valor).split("&")]
+
+    return " & ".join(sorted(partes))
 
 
 def revDuplicadoUND(df_ds_group):
@@ -238,21 +241,65 @@ def revDuplicadoUND(df_ds_group):
     cant = pd.to_numeric(df_ds_group["CANT_UMC_NEW_DETALLE"], errors="coerce")
     base = pd.to_numeric(df_ds_group["BASE CANTIDAD COMERCIAL"], errors="coerce")
 
+    cant_original = df_ds_group["CANT_UMC_NEW_DETALLE"]
+    base_original = df_ds_group["BASE CANTIDAD COMERCIAL"]
+
+    base_vacio = (
+        base_original.isna() |
+        (base_original.astype(str).str.strip() == "")
+    )
+
+    cant_texto = cant.isna() & ~(
+        cant_original.isna() |
+        (cant_original.astype(str).str.strip() == "")
+    )
+
+    base_texto = base.isna() & ~base_vacio
+
+
     resultado = np.empty(len(df_ds_group), dtype=object)
 
     # SI(Y(Y=AA;X=Z);0)
     resultado[(y == aa) & (x == z)] = 0
 
-    # SI(Z="";X)
-    m = ~( (y == aa) & (x == z) ) & base.isna()
+    # # SI(Z="";X)
+    # m = ~( (y == aa) & (x == z) ) & base.isna()
+    # resultado[m] = df_ds_group.loc[m, "CANT_UMC_NEW_DETALLE"]
+
+    # # SI(Y<>AA;"REVISAR UM")
+    # m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y != aa)
+    # resultado[m] = "REVISAR UM"
+
+
+    # SI(BASE CANTIDAD COMERCIAL=""; CANT_UMC_NEW_DETALLE)
+    m = ~( (y == aa) & (x == z) ) & base_vacio
     resultado[m] = df_ds_group.loc[m, "CANT_UMC_NEW_DETALLE"]
 
-    # SI(Y<>AA;"REVISAR UM")
-    m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y != aa)
+
+    # SI(O(ESTEXTO(CANTIDAD);ESTEXTO(BASE CANTIDAD));"REVISAR UM")
+    m = (
+        ~( (y == aa) & (x == z) )
+        & ~base_vacio
+        & (cant_texto | base_texto)
+    )
     resultado[m] = "REVISAR UM"
 
+
+    # SI(UNIDADES DIFERENTES;"REVISAR UM")
+    m = (
+        ~( (y == aa) & (x == z) )
+        & ~base_vacio
+        & ~(cant_texto | base_texto)
+        & (y != aa)
+    )
+    resultado[m] = "REVISAR UM"
+
+
+
     # Diferencias numéricas
-    m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y == aa)
+    # m = ~( (y == aa) & (x == z) ) & ~base.isna() & (y == aa)
+    m = (~( (y == aa) & (x == z) )& ~base_vacio & ~(cant_texto | base_texto) & (y == aa)
+)
 
     dif = cant - base
 
@@ -352,6 +399,69 @@ def estatusUND(df_ds_group):
 
     z_vacio = z.isna() | (df_ds_group["BASE CANTIDAD COMERCIAL"].astype(str).str.strip() == "")
 
+
+#    # ================= DEBUG ESTATUS UND =================
+
+#     CLAVE_DEBUG = "240-3989-4019701-32141001"
+
+#     mask_debug = (
+#         df_ds_group["ADU-PAT-PED-HTS"].astype(str) == CLAVE_DEBUG
+#     )
+
+#     if mask_debug.any():
+
+#         for idx in df_ds_group[mask_debug].index:
+
+#             x_debug = pd.to_numeric(x.loc[idx], errors="coerce")
+#             z_debug = pd.to_numeric(z.loc[idx], errors="coerce")
+#             ab_debug = pd.to_numeric(ab.loc[idx], errors="coerce")
+
+#             mensaje_debug = f"""
+#     ========== DEBUG ESTATUS UND ==========
+
+#     ADU-PAT-PED-HTS: {df_ds_group.loc[idx, 'ADU-PAT-PED-HTS']}
+
+#     ----- VALORES -----
+
+#     X CANTIDAD: {repr(x.loc[idx])}
+#     Z BASE: {repr(z.loc[idx])}
+#     AB DIFERENCIA REAL: {repr(df_ds_group.loc[idx, 'DIFERENCIA REAL UND'])}
+
+#     ----- NUMERICOS -----
+
+#     X NUMERICO: {x_debug}
+#     Z NUMERICO: {z_debug}
+#     AB NUMERICO: {ab_debug}
+
+#     ----- CONDICIONES EN ORDEN -----
+
+#     REVISAR UM:
+#     {df_ds_group.loc[idx, 'DIFERENCIA REAL UND'] == 'REVISAR UM'}
+
+#     DUPLICADO:
+#     {df_ds_group.loc[idx, 'REVISIÓN DE DUPLICADOS UND'] == 'DUPLICADO'}
+
+#     Z VACIO:
+#     {z_vacio.loc[idx]}
+
+#     100% CORRECTO (-1 <= AB <= 1):
+#     {pd.notna(ab_debug) and -1 <= ab_debug <= 1}
+
+#     X > 1:
+#     {pd.notna(x_debug) and x_debug > 1}
+
+#     Z > X (LE SOBRA):
+#     {pd.notna(z_debug) and pd.notna(x_debug) and z_debug > x_debug}
+
+#     Z < X (LE FALTA):
+#     {pd.notna(z_debug) and pd.notna(x_debug) and z_debug < x_debug}
+
+#     ========================================
+#     """
+
+#             log(mensaje_debug)
+        
+
     df_ds_group["ESTATUS CANTIDAD COMERCIAL A NIVEL HTS"] = np.where(
         df_ds_group["DIFERENCIA REAL UND"] == "REVISAR UM",
         df_ds_group["CLAVES IMMEX"] + "-REVISAR UM",
@@ -368,10 +478,10 @@ def estatusUND(df_ds_group):
                     (ab >= -1) & (ab <= 1),
                     df_ds_group["CLAVES IMMEX"] + "-100% CORRECTO EN CANTIDAD HTS",
 
-                    np.where(
-                        # x > 1,
-                        pd.to_numeric(x, errors="coerce").fillna(0) > 1,
-                        df_ds_group["CLAVES IMMEX"] + "-LE FALTA CANTIDAD HTS EN BASE",
+                    # np.where(
+                    #     # x > 1, COMENTADO RECIENTEMENTE
+                    #     pd.to_numeric(x, errors="coerce").fillna(0) > 1,
+                    #     df_ds_group["CLAVES IMMEX"] + "-LE FALTA CANTIDAD HTS EN BASE",
 
                         # np.where(
                         #     (((x / z) - 1) >= -0.01) &
@@ -425,7 +535,7 @@ def estatusUND(df_ds_group):
                 )
             )
         )
-    )
+    # )
     
     return df_ds_group    
 

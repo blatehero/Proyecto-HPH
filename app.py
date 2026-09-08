@@ -8,6 +8,14 @@ importlib.reload(cross)
 # CONFIGURACIÓN
 # ============================================================
 
+st.markdown("""
+<style>
+[data-testid="stToolbar"] {
+    display: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.set_page_config(
     page_title="Proyecto HPH",
     page_icon="🚀",
