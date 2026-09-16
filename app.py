@@ -1,8 +1,10 @@
 import streamlit as st
 import importlib
 import Proyectos_Cross.vista_cross as cross
+import Proyectos_Cross.vista_boom as boom
 
 importlib.reload(cross)
+importlib.reload(boom)
 
 # ============================================================
 # CONFIGURACIÓN
@@ -180,15 +182,7 @@ if st.session_state.proyecto == "cross":
 
 elif st.session_state.proyecto == "boom":
 
-    st.markdown(
-        '<div class="titulo-proyecto">📊 PROCESAR BOOM</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div class="descripcion-proyecto">Aquí irá el formulario de BOOM.</div>',
-        unsafe_allow_html=True
-    )
+    boom.mostrar_boom()
 
 
 elif st.session_state.proyecto == "activos":
